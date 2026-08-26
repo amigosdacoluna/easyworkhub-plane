@@ -204,17 +204,18 @@ export const checkIssueDateFilter = (
   if (!dateFilters || dateFilters.length === 0) return true;
 
   const issueDate = issue[filterKey];
-  if (!issueDate) return false;
+  // EWH: item sem data não é descartado de cara — o filtro "Sem data"
+  // (no_date) precisa justamente casar com ele; os demais rejeitam null.
 
   // Issue should match all the date filters (AND operation)
   return dateFilters.every((filterValue) => {
     const parsed = parseDateFilter(filterValue);
-    if (!parsed?.date || !parsed?.type) {
+    if (!parsed) {
       // ignore invalid filter instead of failing the whole evaluation
       console.warn(`[filters] Ignoring unparsable date filter "${filterValue}"`);
       return true;
     }
-    return checkDateCriteria(new Date(issueDate), parsed.date, parsed.type);
+    return checkDateCriteria(issueDate ? new Date(issueDate) : null, parsed);
   });
 };
 

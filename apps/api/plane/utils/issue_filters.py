@@ -5,11 +5,69 @@
 import re
 import uuid
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.utils import timezone
 
 # The date from pattern
-pattern = re.compile(r"\d+_(weeks|months)$")
+# EWH: aceita também "days" (ex.: 7_days) além de weeks/months
+pattern = re.compile(r"\d+_(days|weeks|months)$")
+
+# ── EWH: filtros relativos de data ─────────────────────────────────────
+# "Hoje" precisa ser o hoje de Brasília, não o do relógio UTC do servidor
+# (sem isso, entre 21h e 0h os filtros viram o dia mais cedo).
+EWH_DATE_KEYWORDS = {
+    "today",
+    "tomorrow",
+    "yesterday",
+    "this_week",
+    "next_week",
+    "this_month",
+    "no_date",
+}
+
+
+def ewh_business_today():
+    tz_name = getattr(settings, "EWH_BUSINESS_TZ", None) or "America/Sao_Paulo"
+    try:
+        return timezone.now().astimezone(ZoneInfo(tz_name)).date()
+    except Exception:
+        return timezone.now().date()
+
+
+def ewh_keyword_date_filter(issue_filter, date_term, keyword, subsequent):
+    """Resolve tokens dinâmicos (today;exact;fromnow etc.) na hora da consulta,
+    para que Views salvas continuem corretas em qualquer data."""
+    now = ewh_business_today()
+    if keyword == "no_date":
+        issue_filter[f"{date_term}__isnull"] = True
+        return
+    if keyword == "today":
+        ini = fim = now
+    elif keyword == "tomorrow":
+        ini = fim = now + timedelta(days=1)
+    elif keyword == "yesterday":
+        ini = fim = now - timedelta(days=1)
+    elif keyword == "this_week":
+        ini = now - timedelta(days=now.weekday())
+        fim = ini + timedelta(days=6)
+    elif keyword == "next_week":
+        ini = now - timedelta(days=now.weekday()) + timedelta(days=7)
+        fim = ini + timedelta(days=6)
+    elif keyword == "this_month":
+        ini = now.replace(day=1)
+        fim = (ini + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+    else:
+        return
+    if subsequent == "after":
+        issue_filter[f"{date_term}__gte"] = ini
+    elif subsequent == "before":
+        issue_filter[f"{date_term}__lte"] = fim
+    else:  # "exact": o intervalo inteiro
+        issue_filter[f"{date_term}__gte"] = ini
+        issue_filter[f"{date_term}__lte"] = fim
+# ── fim EWH ────────────────────────────────────────────────────────────
 
 
 # check the valid uuids
@@ -27,7 +85,21 @@ def filter_valid_uuids(uuid_list):
 
 # Get the 2_weeks, 3_months
 def string_date_filter(issue_filter, duration, subsequent, term, date_filter, offset):
-    now = timezone.now().date()
+    now = ewh_business_today()  # EWH: dia no fuso do negócio (era timezone.now)
+    # EWH: granularidade em dias + intervalos "next"/"last"
+    if term == "days":
+        delta = timedelta(days=duration)
+        if subsequent == "next":  # entre hoje e hoje+X (ex.: próximos 7 dias)
+            issue_filter[f"{date_filter}__gte"] = now
+            issue_filter[f"{date_filter}__lte"] = now + delta
+        elif subsequent == "last":  # entre hoje-X e hoje (ex.: últimos 7 dias)
+            issue_filter[f"{date_filter}__gte"] = now - delta
+            issue_filter[f"{date_filter}__lte"] = now
+        elif subsequent == "after":
+            issue_filter[f"{date_filter}__gte"] = now + delta if offset == "fromnow" else now - delta
+        else:
+            issue_filter[f"{date_filter}__lte"] = now + delta if offset == "fromnow" else now - delta
+        return
     if term == "months":
         if subsequent == "after":
             if offset == "fromnow":
@@ -60,6 +132,10 @@ def date_filter(issue_filter, date_term, queries):
         date_query = query.split(";")
         if date_query:
             if len(date_query) >= 2:
+                # EWH: tokens dinâmicos resolvidos a cada consulta
+                if date_query[0] in EWH_DATE_KEYWORDS:
+                    ewh_keyword_date_filter(issue_filter, date_term, date_query[0], date_query[1])
+                    continue
                 match = pattern.match(date_query[0])
                 if match:
                     if len(date_query) == 3:

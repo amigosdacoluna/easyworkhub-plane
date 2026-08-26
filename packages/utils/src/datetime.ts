@@ -443,43 +443,109 @@ export const processRelativeDate = (value: string): Date => {
 };
 
 /**
- * Parses a date filter string and returns the comparison type and date
- * @param filterValue The date filter string (e.g., "1_weeks;after;fromnow" or "2024-12-01;after")
- * @returns Object containing the comparison type and target date
+ * EWH: resultado do parse de um filtro de data — um intervalo (uma ou ambas as
+ * pontas) ou o caso especial "sem data". Espelha a semântica do backend
+ * (apps/api/plane/utils/issue_filters.py), que é a fonte da verdade.
  */
-export const parseDateFilter = (filterValue: string): { type: "after" | "before"; date: Date } => {
+export type TParsedDateFilter = { after?: Date; before?: Date; noDate?: boolean };
+
+const startOfToday = (): Date => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+};
+
+const addDays = (base: Date, days: number): Date => {
+  const d = new Date(base.getTime());
+  d.setDate(d.getDate() + days);
+  return d;
+};
+
+/**
+ * Parses a date filter string into a date range.
+ * Aceita: tokens dinâmicos EWH ("today;exact;fromnow", "7_days;next;fromnow",
+ * "no_date;exact;fromnow"…), relativos legados ("1_weeks;after;fromnow")
+ * e datas absolutas ("2024-12-01;after").
+ * @returns intervalo do filtro, ou null se o token for irreconhecível
+ */
+export const parseDateFilter = (filterValue: string): TParsedDateFilter | null => {
   const parts = filterValue.split(";");
   const dateStr = parts[0];
-  const type = parts[1] as "after" | "before";
+  const type = parts[1];
 
-  let date: Date;
-  if (dateStr.includes("_")) {
-    // Handle relative dates (e.g., "1_weeks;after;fromnow")
-    date = processRelativeDate(dateStr);
-  } else {
-    // Handle absolute dates (e.g., "2024-12-01;after")
-    date = new Date(dateStr);
+  const hoje = startOfToday();
+  // dow: 0=segunda … 6=domingo (semana começando na segunda, como no backend)
+  const dow = (hoje.getDay() + 6) % 7;
+
+  const intervalos: Record<string, [Date, Date] | null> = {
+    no_date: null,
+    today: [hoje, hoje],
+    tomorrow: [addDays(hoje, 1), addDays(hoje, 1)],
+    yesterday: [addDays(hoje, -1), addDays(hoje, -1)],
+    this_week: [addDays(hoje, -dow), addDays(hoje, -dow + 6)],
+    next_week: [addDays(hoje, -dow + 7), addDays(hoje, -dow + 13)],
+    this_month: [
+      new Date(hoje.getFullYear(), hoje.getMonth(), 1),
+      new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0),
+    ],
+  };
+
+  if (dateStr in intervalos) {
+    if (dateStr === "no_date") return { noDate: true };
+    const [ini, fim] = intervalos[dateStr] as [Date, Date];
+    if (type === "after") return { after: ini };
+    if (type === "before") return { before: fim };
+    return { after: ini, before: fim }; // "exact"
   }
 
-  return { type, date };
+  if (dateStr.includes("_")) {
+    const [amountStr, unit] = dateStr.split("_");
+    const amount = parseInt(amountStr, 10);
+    if (isNaN(amount)) return null;
+    if (unit === "days" && type === "next") return { after: hoje, before: addDays(hoje, amount) };
+    if (unit === "days" && type === "last") return { after: addDays(hoje, -amount), before: hoje };
+    try {
+      const date = processRelativeDate(dateStr);
+      if (type === "after") return { after: date };
+      if (type === "before") return { before: date };
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  // datas absolutas ("2024-12-01;after")
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return null;
+  if (type === "after") return { after: date };
+  if (type === "before") return { before: date };
+  return null;
 };
 
 /**
  * Checks if a date meets the filter criteria
- * @param dateToCheck The date to check
- * @param filterDate The filter date to compare against
- * @param type The type of comparison ('after' or 'before')
+ * @param dateToCheck The date to check (null = item sem data)
+ * @param parsed The parsed filter range from parseDateFilter
  * @returns boolean indicating if the date meets the criteria
  */
-export const checkDateCriteria = (dateToCheck: Date | null, filterDate: Date, type: "after" | "before"): boolean => {
+export const checkDateCriteria = (dateToCheck: Date | null, parsed: TParsedDateFilter): boolean => {
+  if (parsed.noDate) return !dateToCheck;
   if (!dateToCheck) return false;
 
   const checkDate = new Date(dateToCheck);
   const normalizedCheck = new Date(checkDate.setHours(0, 0, 0, 0));
-  const normalizedFilter = new Date(filterDate.getTime());
-  normalizedFilter.setHours(0, 0, 0, 0);
 
-  return type === "after" ? normalizedCheck >= normalizedFilter : normalizedCheck <= normalizedFilter;
+  if (parsed.after) {
+    const ini = new Date(parsed.after.getTime());
+    ini.setHours(0, 0, 0, 0);
+    if (normalizedCheck < ini) return false;
+  }
+  if (parsed.before) {
+    const fim = new Date(parsed.before.getTime());
+    fim.setHours(0, 0, 0, 0);
+    if (normalizedCheck > fim) return false;
+  }
+  return true;
 };
 
 /**
