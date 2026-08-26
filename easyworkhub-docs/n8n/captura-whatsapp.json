@@ -1,0 +1,322 @@
+{
+  "name": "EWH · Captura por WhatsApp (texto e voz)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ewh-whatsapp",
+        "options": {}
+      },
+      "id": "wh-evo",
+      "name": "Webhook Evolution",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "dbced436-cfd1-51cc-a1a7-8fb1fb736973"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── CONFIG ──────────────────────────────────────────────────────\n// Mapeia o TELEFONE do remetente para o usuário do EasyWorkHub.\n// TODO: preencher telefone real da Ana e o token (mesmo do atalho).\nconst USUARIOS = {\n  '5599999999999': {\n    nome: 'Ana Beatriz',\n    token: 'TODO_plane_api_...',\n    projeto: '1a84be32-f826-4a28-a99c-4f17cf36c20e'\n  }\n};\nconst EVO_URL = 'https://evo.fisioterapia.cloud';\nconst EVO_INSTANCIA = 'easyworkhub-captura';\n// ────────────────────────────────────────────────────────────────\n\nconst b = $input.first().json.body || $input.first().json;\nif (b.event !== 'messages.upsert') return []; // ignora outros eventos\nconst data = b.data || {};\nconst key = data.key || {};\nif (key.fromMe) return [];                       // ignora mensagens enviadas por nós\nif ((key.remoteJid || '').endsWith('@g.us')) return []; // ignora grupos\n\nconst telefone = (key.remoteJid || '').split('@')[0];\nconst u = USUARIOS[telefone];\nif (!u) return []; // número não cadastrado: silêncio (não vaza existência do fluxo)\n\nconst msg = data.message || {};\nconst textoDireto = msg.conversation || msg.extendedTextMessage?.text || null;\nconst temAudio = !!msg.audioMessage;\n\nconst hora = new Date().toLocaleTimeString('pt-BR', {\n  timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'\n});\nreturn [{ json: {\n  telefone, remoteJid: key.remoteJid, messageId: key.id,\n  token: u.token, projeto: u.projeto,\n  texto: textoDireto, temAudio, hora,\n  evoUrl: EVO_URL, evoInstancia: EVO_INSTANCIA\n}}];"
+      },
+      "id": "cfg-filtrar",
+      "name": "Filtrar e identificar usuário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.temAudio }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "if-audio",
+      "name": "É áudio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.evoUrl }}/chat/getBase64FromMediaMessage/{{ $json.evoInstancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "TODO_APIKEY_EVOLUTION"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: { key: { id: $json.messageId } }, convertToMp4: false }) }}",
+        "options": {}
+      },
+      "id": "http-media",
+      "name": "Baixar áudio (base64)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "base64",
+        "options": {
+          "fileName": "audio.ogg",
+          "mimeType": "audio/ogg"
+        }
+      },
+      "id": "conv-bin",
+      "name": "Base64 → arquivo",
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer TODO_OPENAI_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "language",
+              "value": "pt"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "http-stt",
+      "name": "Transcrever (Whisper)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Junta o caminho do áudio (transcrição) e o do texto puro num payload único.\nconst base = $('Filtrar e identificar usuário').first().json;\nlet texto, origem;\nif (base.temAudio) {\n  texto = ($json.text || '').trim();\n  origem = `Capturado por voz • ${base.hora}`;\n  if (!texto) texto = '(áudio sem fala reconhecível — ouvir no WhatsApp)';\n} else {\n  texto = (base.texto || '').trim();\n  origem = `Capturado por texto • ${base.hora}`;\n}\nif (!texto) return [];\nreturn [{ json: {\n  ...base,\n  titulo: texto.length > 120 ? texto.slice(0, 117) + '…' : texto,\n  descricao: `<p>${texto}</p><p><em>${origem}</em></p>`\n}}];"
+      },
+      "id": "montar",
+      "name": "Montar item",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://plane.easyworkhub.com.br/api/v1/workspaces/grupo-espacial-motel/projects/{{ $json.projeto }}/work-items/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.titulo, description_html: $json.descricao }) }}",
+        "options": {}
+      },
+      "id": "http-plane",
+      "name": "Criar item na captura",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Filtrar e identificar usuário').first().json.evoUrl }}/message/sendText/{{ $('Filtrar e identificar usuário').first().json.evoInstancia }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "TODO_APIKEY_EVOLUTION"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ number: $('Filtrar e identificar usuário').first().json.telefone, text: '✅ Capturado: ' + $('Montar item').first().json.titulo }) }}",
+        "options": {}
+      },
+      "id": "http-confirma",
+      "name": "Confirmar no WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook Evolution": {
+      "main": [
+        [
+          {
+            "node": "Filtrar e identificar usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtrar e identificar usuário": {
+      "main": [
+        [
+          {
+            "node": "É áudio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É áudio?": {
+      "main": [
+        [
+          {
+            "node": "Baixar áudio (base64)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Montar item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar áudio (base64)": {
+      "main": [
+        [
+          {
+            "node": "Base64 → arquivo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Base64 → arquivo": {
+      "main": [
+        [
+          {
+            "node": "Transcrever (Whisper)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcrever (Whisper)": {
+      "main": [
+        [
+          {
+            "node": "Montar item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar item": {
+      "main": [
+        [
+          {
+            "node": "Criar item na captura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar item na captura": {
+      "main": [
+        [
+          {
+            "node": "Confirmar no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "id": "EwhRecorrencia",
+  "name": "EWH · Recorrência de rotinas",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 5 * * *"
+            }
+          ]
+        }
+      },
+      "id": "sched",
+      "name": "Todo dia às 5h (Brasília)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════════\n// MOTOR DE RECORRÊNCIA — EasyWorkHub · Grupo Espacial (Épico 3)\n// Edite APENAS o bloco ROTINAS. O resto é o motor.\n// ═══════════════════════════════════════════════════════════════════\nconst API = 'https://plane.easyworkhub.com.br/api/v1/workspaces/grupo-espacial-motel';\nconst TOKEN = 'TODO_plane_api_...';\n\n// ── ROTINAS ────────────────────────────────────────────────────────\n// frequencia:\n//   'diaria'                     todo dia\n//   'dias_semana:seg,qua,sex'    dias específicos (dom,seg,ter,qua,qui,sex,sab)\n//   'semanal:seg'                1x por semana\n//   'mensal:5'                   todo dia 5 (meses sem o dia: não gera)\n//   'anual:15/03'                todo 15 de março\n//   'cada:3d' | 'cada:2s' | 'cada:1m'   a cada X dias/semanas/meses\n//                                (exige \"inicio\"; mês ≈ 30 dias)\n// inicio/fim: 'AAAA-MM-DD' (opcionais) · sufixo_data: título ganha \" · DD/MM\"\nconst ROTINAS = [\n  {\n    id: 'verificar-interditados',\n    titulo: 'Verificar apartamentos interditados',\n    descricao: 'Passar em todos os apartamentos interditados e registrar a situação de cada um.',\n    projeto: 'MNT',\n    prioridade: 'high',\n    etiquetas: ['Rotina'],\n    frequencia: 'diaria',\n    sufixo_data: true,\n    ativo: true\n  },\n  {\n    id: 'exemplo-semanal',\n    titulo: 'Conferir estoque da copa',\n    projeto: 'CMP',\n    etiquetas: ['Rotina'],\n    frequencia: 'semanal:seg',\n    sufixo_data: true,\n    ativo: false            // ← exemplo desligado; ativar quando quiser\n  },\n  {\n    id: 'exemplo-mensal',\n    titulo: 'Fechar planilha de consumo do mês',\n    projeto: 'DIR',\n    frequencia: 'mensal:1',\n    prioridade: 'urgent',\n    ativo: false\n  }\n];\n// ── FIM DAS ROTINAS ────────────────────────────────────────────────\n\n// data de hoje no fuso de Brasília (nunca usar o relógio UTC do servidor)\nconst hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });\nconst dHoje = new Date(hoje + 'T12:00:00Z');\nconst dow = dHoje.getUTCDay(); // 0=dom … 6=sab\nconst DIAS = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };\nconst [ano, mes, dia] = hoje.split('-').map(Number);\n\nfunction venceHoje(r) {\n  if (r.inicio && hoje < r.inicio) return false;\n  if (r.fim && hoje > r.fim) return false;\n  const [tipo, arg] = r.frequencia.split(':');\n  if (tipo === 'diaria') return true;\n  if (tipo === 'dias_semana') return arg.split(',').some(d => DIAS[d.trim()] === dow);\n  if (tipo === 'semanal') return DIAS[arg.trim()] === dow;\n  if (tipo === 'mensal') return dia === Number(arg);\n  if (tipo === 'anual') {\n    const [dd, mm] = arg.split('/').map(Number);\n    return dia === dd && mes === mm;\n  }\n  if (tipo === 'cada') {\n    if (!r.inicio) return false;\n    const passo = { d: 1, s: 7, m: 30 }[arg.slice(-1)] * Number(arg.slice(0, -1));\n    const diff = Math.round((dHoje - new Date(r.inicio + 'T12:00:00Z')) / 86400000);\n    return diff >= 0 && diff % passo === 0;\n  }\n  return false;\n}\n\n// trava: cada rotina gera no máximo 1 vez por dia (sobrevive a reexecuções)\nconst sd = $getWorkflowStaticData('global');\nsd.lastRun = sd.lastRun || {};\n\nconst req = (method, url, body) => this.helpers.httpRequest({\n  method, url, json: true,\n  headers: { 'X-Api-Key': TOKEN, 'Content-Type': 'application/json' },\n  body\n});\nconst pausa = ms => new Promise(res => setTimeout(res, ms));\n\nconst devidas = ROTINAS.filter(r => r.ativo && venceHoje(r) && sd.lastRun[r.id] !== hoje);\nif (!devidas.length) return [{ json: { dia: hoje, criadas: 0, msg: 'nada a gerar' } }];\n\n// resolve projetos uma vez; estados/etiquetas por projeto sob demanda (com cache)\nconst projs = await req('GET', `${API}/projects/?per_page=100`);\nconst porIdent = {};\nfor (const p of (projs.results || projs)) porIdent[p.identifier] = p.id;\nconst cache = {};\nasync function contexto(pid) {\n  if (!cache[pid]) {\n    const [est, lab] = [\n      await req('GET', `${API}/projects/${pid}/states/?per_page=100`),\n      await req('GET', `${API}/projects/${pid}/labels/?per_page=100`)\n    ];\n    cache[pid] = {\n      estados: est.results || est,\n      labels: Object.fromEntries((lab.results || lab).map(l => [l.name, l.id]))\n    };\n  }\n  return cache[pid];\n}\n\nconst resumo = [];\nfor (const r of devidas) {\n  const pid = porIdent[r.projeto];\n  if (!pid) { resumo.push({ rotina: r.id, erro: `projeto ${r.projeto} não existe` }); continue; }\n  const ctx = await contexto(pid);\n  const estado = ctx.estados.find(s => s.group === 'unstarted');\n  const dataBr = `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`;\n  const titulo = r.titulo + (r.sufixo_data ? ` · ${dataBr}` : '');\n  const checklist = (r.checklist || []).map(c => `<li>${c}</li>`).join('');\n  const corpo = `<p>${r.descricao || ''}</p>` +\n    (checklist ? `<ul class=\"todo-list\">${checklist}</ul>` : '') +\n    `<p><em>Rotina automática (${r.frequencia})</em></p>`;\n  const payload = {\n    name: titulo,\n    description_html: corpo,\n    priority: r.prioridade || 'none',\n    target_date: hoje,\n    labels: (r.etiquetas || []).map(n => ctx.labels[n]).filter(Boolean)\n  };\n  if (estado) payload.state = estado.id;\n  const criado = await req('POST', `${API}/projects/${pid}/work-items/`, payload);\n  sd.lastRun[r.id] = hoje;\n  resumo.push({ rotina: r.id, item: criado.id, titulo });\n  await pausa(1200);\n}\nreturn [{ json: { dia: hoje, criadas: resumo.filter(x => x.item).length, resumo } }];"
+      },
+      "id": "motor",
+      "name": "Motor de recorrência",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "manual",
+      "name": "Disparo manual (CLI/outros fluxos)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        180
+      ]
+    }
+  ],
+  "connections": {
+    "Todo dia às 5h (Brasília)": {
+      "main": [
+        [
+          {
+            "node": "Motor de recorrência",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Disparo manual (CLI/outros fluxos)": {
+      "main": [
+        [
+          {
+            "node": "Motor de recorrência",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}

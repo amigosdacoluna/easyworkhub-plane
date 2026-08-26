@@ -1,0 +1,115 @@
+{
+  "name": "EWH · Captura por atalho (iOS/Android)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ewh-captura",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "wh-captura",
+      "name": "Webhook do atalho",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "3f572c1d-4dcd-5b01-bab1-a1253a23797a"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ── CONFIG ──────────────────────────────────────────────────────\n// Cada usuário tem uma CHAVE (vai embutida no atalho do celular),\n// o próprio token de API e o projeto de captura privado dele.\n// TODO: preencher token real (VPS: docker exec plane-be-api-1 python\n//       manage.py shell -c \"from plane.db.models import APIToken;\n//       print(APIToken.objects.get(label='n8n-captura').token)\")\nconst USUARIOS = {\n  'ana-2f8k': {\n    nome: 'Ana Beatriz',\n    token: 'TODO_plane_api_...',\n    projeto: '1a84be32-f826-4a28-a99c-4f17cf36c20e'\n  }\n};\nconst SEGREDO = 'TODO_segredo_compartilhado_do_webhook';\n// ────────────────────────────────────────────────────────────────\n\nconst body = $input.first().json.body || {};\nif (body.segredo !== SEGREDO) {\n  throw new Error('Segredo inválido');\n}\nconst u = USUARIOS[body.chave];\nif (!u) throw new Error('Chave de usuário desconhecida');\nconst texto = (body.texto || '').trim();\nif (!texto) throw new Error('Texto vazio');\n\nconst hora = new Date().toLocaleTimeString('pt-BR', {\n  timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit'\n});\nreturn [{ json: {\n  token: u.token,\n  projeto: u.projeto,\n  titulo: texto.length > 120 ? texto.slice(0, 117) + '…' : texto,\n  descricao: `<p>${texto}</p><p><em>Capturado pelo atalho • ${hora}</em></p>`\n}}];"
+      },
+      "id": "cfg-rotear",
+      "name": "Validar e rotear usuário",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://plane.easyworkhub.com.br/api/v1/workspaces/grupo-espacial-motel/projects/{{ $json.projeto }}/work-items/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ name: $json.titulo, description_html: $json.descricao }) }}",
+        "options": {}
+      },
+      "id": "http-plane",
+      "name": "Criar item na captura",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ ok: true, id: $json.id }) }}"
+      },
+      "id": "resp-ok",
+      "name": "Responder ao atalho",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook do atalho": {
+      "main": [
+        [
+          {
+            "node": "Validar e rotear usuário",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar e rotear usuário": {
+      "main": [
+        [
+          {
+            "node": "Criar item na captura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar item na captura": {
+      "main": [
+        [
+          {
+            "node": "Responder ao atalho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Sao_Paulo"
+  }
+}

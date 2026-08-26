@@ -1,0 +1,82 @@
+# Arquitetura de projetos — Grupo Espacial Motéis
+# Proposta do PRD §5 — 🔶 PENDENTE de aprovação da Diretoria.
+# Aplicada por provision.py (idempotente: rodar de novo não duplica nada).
+#
+# network: 0 = privado (só convidados) | 2 = público no workspace
+
+# Estados padrão aplicados a TODOS os projetos (brief §5).
+# "renomeia_de" casa com o estado default que o Plane cria junto do projeto.
+estados_padrao:
+  - { nome: "Ideias / A avaliar",     grupo: backlog,   renomeia_de: "Backlog",     cor: "#9AA4B2" }
+  - { nome: "A fazer",                grupo: unstarted, renomeia_de: "Todo",        cor: "#3F76FF" }
+  - { nome: "Em andamento",           grupo: started,   renomeia_de: "In Progress", cor: "#F59E0B" }
+  - { nome: "Aguardando terceiro",    grupo: started,                               cor: "#B45309" }
+  - { nome: "Aguardando diretoria",   grupo: started,                               cor: "#8B5CF6" }
+  - { nome: "Concluído",              grupo: completed, renomeia_de: "Done",        cor: "#16A34A" }
+  - { nome: "Cancelado",              grupo: cancelled, renomeia_de: "Cancelled",   cor: "#DC2626" }
+
+# Grupos de etiquetas reutilizáveis (brief §6) — cada projeto referencia os seus.
+etiquetas:
+  setores: &setores
+    - { nome: "Recepção",       cor: "#3B82F6" }
+    - { nome: "Camareiras",     cor: "#EC4899" }
+    - { nome: "Copa",           cor: "#F97316" }
+    - { nome: "Zeladoria",      cor: "#14B8A6" }
+    - { nome: "Manutenção",     cor: "#EAB308" }
+    - { nome: "Administrativo", cor: "#6366F1" }
+    - { nome: "RH",             cor: "#8B5CF6" }
+  tipos: &tipos
+    - { nome: "Rotina",    cor: "#64748B" }
+    - { nome: "Compra",    cor: "#22C55E" }
+    - { nome: "Decisão",   cor: "#8B5CF6" }
+    - { nome: "Projeto",   cor: "#0EA5E9" }
+    - { nome: "Pendência", cor: "#EF4444" }
+  unidades: &unidades
+    - { nome: "Espacial", cor: "#2563EB" }
+    - { nome: "Rocket",   cor: "#DC2626" }
+    - { nome: "Pérola",   cor: "#0D9488" }
+
+projetos:
+  - nome: "Operação Espacial"
+    identificador: "ESP"
+    descricao: "Rotinas e demandas do dia a dia da unidade Espacial."
+    network: 2
+    etiquetas: [*setores, *tipos]
+
+  - nome: "Operação Rocket"
+    identificador: "RCK"
+    descricao: "Rotinas e demandas do dia a dia da unidade Rocket."
+    network: 2
+    etiquetas: [*setores, *tipos]
+
+  - nome: "Operação Pérola"
+    identificador: "PER"
+    descricao: "Rotinas e demandas do dia a dia da unidade Pérola."
+    network: 2
+    etiquetas: [*setores, *tipos]
+
+  - nome: "Manutenção"
+    identificador: "MNT"
+    descricao: "Chamados e rotinas de manutenção das três unidades. Intake ativo para triagem."
+    network: 2
+    etiquetas: [*unidades, *tipos]
+    intake: true
+
+  - nome: "Compras"
+    identificador: "CMP"
+    descricao: "Pedidos e acompanhamento de compras. Intake ativo para triagem."
+    network: 2
+    etiquetas: [*unidades, *tipos]
+    intake: true
+
+  - nome: "Diretoria"
+    identificador: "DIR"
+    descricao: "Decisões, aprovações e assuntos confidenciais."
+    network: 0
+    etiquetas: [*unidades, *tipos]
+
+  - nome: "Marketing"
+    identificador: "MKT"
+    descricao: "Campanhas, redes sociais e comunicação das unidades."
+    network: 2
+    etiquetas: [*unidades, *tipos]
