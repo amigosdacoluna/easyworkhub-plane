@@ -92,6 +92,12 @@ export const BASE_NOTIFICATION_CONTENT_MAP: TNotificationContentMap = {
     value: null,
     showConnector: false,
   }),
+  // EWH: alertas internos de prazo (plane/bgtasks/ewh_deadline_alerts.py)
+  ewh_alert: ({ newValue }) => ({
+    action: null,
+    value: newValue,
+    showConnector: false,
+  }),
   None: () => ({
     action: null,
     value: "the work item and assigned it to you.",
