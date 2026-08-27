@@ -68,6 +68,9 @@ export type TBaseIssue = {
   updated_at: string;
   start_date: string | null;
   target_date: string | null;
+  // EWH (Épico 7): horário opcional (formato "HH:MM:SS", null = sem hora)
+  start_time: string | null;
+  target_time: string | null;
   completed_at: string | null;
   archived_at: string | null;
 

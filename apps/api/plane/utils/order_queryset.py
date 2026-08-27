@@ -183,6 +183,11 @@ def order_issue_queryset(issue_queryset, order_by_param="-created_at"):
             "-created_at",
         )
         order_by_param = "-min_values" if order_by_param.startswith("-") else "min_values"
+    # EWH (Épico 7): ao ordenar por data, desempata pela hora dentro do mesmo dia
+    elif order_by_param in ["target_date", "-target_date", "start_date", "-start_date"]:
+        campo_hora = order_by_param.lstrip("-").replace("_date", "_time")
+        prefixo = "-" if order_by_param.startswith("-") else ""
+        issue_queryset = issue_queryset.order_by(order_by_param, f"{prefixo}{campo_hora}", "-created_at")
     else:
         # If the order_by_param is created_at, then don't add the -created_at
         if "created_at" in order_by_param:

@@ -163,6 +163,9 @@ export class IssueStore implements IIssueStore {
       updated_at: issue?.updated_at,
       start_date: issue?.start_date,
       target_date: issue?.target_date,
+      // EWH (Épico 7): horário opcional
+      start_time: issue?.start_time,
+      target_time: issue?.target_time,
       completed_at: issue?.completed_at,
       archived_at: issue?.archived_at,
       created_by: issue?.created_by,

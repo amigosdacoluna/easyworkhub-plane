@@ -296,7 +296,7 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
         shouldRenderProperty={() => !isDateRangeEnabled}
       >
         {/* oxlint-disable-next-line jsx_a11y/click-events-have-key-events oxlint-disable-next-line jsx_a11y/no-static-element-interactions */}
-        <div className="h-5" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
+        <div className="flex h-5 items-center gap-1" onFocus={handleEventPropagation} onClick={handleEventPropagation}>
           <DateDropdown
             value={issue?.target_date ?? null}
             onChange={handleTargetDate}
@@ -314,6 +314,12 @@ export const IssueProperties = observer(function IssueProperties(props: IIssuePr
             showTooltip
             labelClassName="text-caption-sm-regular"
           />
+          {/* EWH (Épico 7): hora opcional do prazo */}
+          {issue.target_date && issue.target_time && (
+            <span className="flex h-5 shrink-0 items-center rounded border-[0.5px] border-subtle-1 px-1.5 text-caption-sm-regular text-secondary">
+              {issue.target_time.slice(0, 5)}
+            </span>
+          )}
         </div>
       </WithDisplayPropertiesHOC>
 

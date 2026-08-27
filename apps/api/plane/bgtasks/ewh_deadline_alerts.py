@@ -24,10 +24,12 @@ SENDER_PREFIX = "in_app:ewh_deadline"
 def _alert_title(kind, issue, dias_atraso=0):
     urgente = " ⚠ URGENTE" if issue.priority == "urgent" else ""
     nome = issue.name if len(issue.name) <= 80 else issue.name[:77] + "…"
+    # EWH (Épico 7): inclui a hora quando a tarefa tiver horário definido
+    hora = f" às {issue.target_time.strftime('%H:%M')}" if getattr(issue, "target_time", None) else ""
     if kind == "due_tomorrow":
-        return f"⏰ Vence amanhã{urgente}: {nome}"
+        return f"⏰ Vence amanhã{hora}{urgente}: {nome}"
     if kind == "due_today":
-        return f"📅 Vence hoje{urgente}: {nome}"
+        return f"📅 Vence hoje{hora}{urgente}: {nome}"
     plural = "dia" if dias_atraso == 1 else "dias"
     return f"🔴 Atrasada há {dias_atraso} {plural}{urgente}: {nome}"
 

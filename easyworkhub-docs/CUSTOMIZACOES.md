@@ -89,10 +89,28 @@ baixo — strings pontuais.
 
 Testado: 4 alertas corretos (2 vence-hoje, 2 atrasadas), 2ª execução = 0 (dedupe).
 
+## C4 — Horário opcional nas tarefas (Épico 7)
+
+Opção B do PRD: **colunas aditivas**, sem tocar no `target_date`.
+
+| Arquivo | Mudança |
+|---|---|
+| `apps/api/plane/db/models/issue.py` | +2 campos: `start_time`/`target_time` (TimeField, null) — null = comportamento original intacto |
+| `apps/api/plane/db/migrations/ewh_0001_issue_time_fields.py` | **Migration própria** com instruções de rebase no cabeçalho (única manutenção: apontar `dependencies` para a última migration upstream) e de rollback (colunas órfãs são inertes) |
+| `apps/api/plane/app/views/issue/base.py` + `utils/grouper.py` | Campos novos nas listas `.values()` das listagens (fluem para o quadro/lista) |
+| `apps/api/plane/utils/order_queryset.py` | Ordenar por data desempata pela hora dentro do mesmo dia |
+| `bgtasks/ewh_deadline_alerts.py` | Alerta inclui a hora: "Vence hoje às 14:30: …" |
+| `packages/types/src/issues/issue.ts` | `start_time`/`target_time` no TIssue |
+| `issue-detail/sidebar.tsx` | Campo de hora (input time nativo) ao lado das datas de início e vencimento; aparece só quando a data existe |
+| `issue-layouts/properties/all-properties.tsx` | Chip "14:30" ao lado do chip de data no quadro/lista quando houver hora |
+
+Serializers interno (`__all__`) e público (sem `fields`) expõem os campos
+automaticamente — a API pública já aceita/retorna (testado: PATCH + GET).
+A recorrência (n8n) pode definir `target_time` nas ocorrências.
+
 ## Pendentes (próximos nesta branch)
 
 - C2 lote 2 — telas administrativas
-- C4 — Horário opcional nas tarefas, colunas aditivas (Épico 7)
 
 ## Infra
 

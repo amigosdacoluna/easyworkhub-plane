@@ -138,6 +138,7 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
             )}
 
             <SidebarPropertyListItem icon={StartDatePropertyIcon} label={t("common.order_by.start_date")}>
+              <div className="flex w-full items-center gap-2">
               <DateDropdown
                 placeholder={t("issue.add.start_date")}
                 value={issue.start_date}
@@ -155,6 +156,21 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 hideIcon
                 clearIconClassName="h-3 w-3 hidden group-hover:inline"
               />
+                {issue.start_date && (
+                  <input
+                    type="time"
+                    aria-label="Hora de início"
+                    className="h-7.5 shrink-0 cursor-pointer rounded bg-transparent text-body-xs-regular text-secondary outline-none hover:bg-layer-1 focus:bg-layer-1"
+                    value={issue.start_time ? issue.start_time.slice(0, 5) : ""}
+                    onChange={(e) =>
+                      issueOperations.update(workspaceSlug, projectId, issueId, {
+                        start_time: e.target.value ? `${e.target.value}:00` : null,
+                      })
+                    }
+                    disabled={!isEditable}
+                  />
+                )}
+              </div>
             </SidebarPropertyListItem>
 
             <SidebarPropertyListItem icon={DueDatePropertyIcon} label={t("common.order_by.due_date")}>
@@ -179,6 +195,20 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                   hideIcon
                   clearIconClassName="h-3 w-3 hidden group-hover:inline text-primary"
                 />
+                {issue.target_date && (
+                  <input
+                    type="time"
+                    aria-label="Hora de vencimento"
+                    className="h-7.5 shrink-0 cursor-pointer rounded bg-transparent text-body-xs-regular text-secondary outline-none hover:bg-layer-1 focus:bg-layer-1"
+                    value={issue.target_time ? issue.target_time.slice(0, 5) : ""}
+                    onChange={(e) =>
+                      issueOperations.update(workspaceSlug, projectId, issueId, {
+                        target_time: e.target.value ? `${e.target.value}:00` : null,
+                      })
+                    }
+                    disabled={!isEditable}
+                  />
+                )}
               </div>
             </SidebarPropertyListItem>
 
