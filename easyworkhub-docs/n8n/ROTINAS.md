@@ -23,7 +23,11 @@ execução no mesmo dia: **0 criadas** (trava de duplicação validada).
   id: 'verificar-interditados',   // único e estável — a trava de duplicação usa isso
   titulo: 'Verificar apartamentos interditados',
   descricao: 'Texto que aparece dentro da tarefa.',   // opcional
-  projeto: 'MNT',                 // identificador: ESP RCK PER MNT CMP DIR MKT
+  projeto: 'MNT',                 // identificador real (EM RKT PEM MNT CMP DIR MKT)
+  responsavel: 'email@dominio',   // opcional — a tarefa nasce atribuída (e os
+                                  // alertas de prazo das 7h passam a valer!)
+  hora: '07:30',                  // opcional — prazo com horário (aparece no
+                                  // quadro e nos alertas: "Vence hoje às 07:30")
   prioridade: 'high',             // urgent | high | medium | low | none
   etiquetas: ['Rotina'],          // nomes exatos de etiquetas do projeto
   checklist: ['Passo 1', 'Passo 2'],   // opcional — vira lista na descrição
@@ -37,13 +41,13 @@ execução no mesmo dia: **0 criadas** (trava de duplicação validada).
 
 ### Frequências
 
-| Valor | Significado |
-|---|---|
-| `'diaria'` | todo dia |
-| `'dias_semana:seg,qua,sex'` | dias específicos (dom seg ter qua qui sex sab) |
-| `'semanal:seg'` | uma vez por semana |
-| `'mensal:5'` | todo dia 5 (mês sem o dia — ex. 31 — não gera) |
-| `'anual:15/03'` | todo 15 de março |
+| Valor                               | Significado                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------- |
+| `'diaria'`                          | todo dia                                                                              |
+| `'dias_semana:seg,qua,sex'`         | dias específicos (dom seg ter qua qui sex sab)                                        |
+| `'semanal:seg'`                     | uma vez por semana                                                                    |
+| `'mensal:5'`                        | todo dia 5 (mês sem o dia — ex. 31 — não gera)                                        |
+| `'anual:15/03'`                     | todo 15 de março                                                                      |
 | `'cada:3d'` `'cada:2s'` `'cada:1m'` | a cada 3 dias / 2 semanas / 1 mês (≈30d), contando a partir de `inicio` (obrigatório) |
 
 ## Comportamento garantido (critérios do PRD)
@@ -54,6 +58,9 @@ execução no mesmo dia: **0 criadas** (trava de duplicação validada).
   (estado guardado no próprio workflow, por `id` de rotina).
 - Tarefas nascem no estado **"A fazer"**, com prazo do dia e os campos da rotina.
 - Autor das tarefas: conta da Ana (token `n8n-captura`).
+- **Responsável e hora** (28/08/2026): a rotina "Verificar apartamentos
+  interditados" nasce atribuída à Ana às 07:30. Validado em produção:
+  tarefa criada com responsável correto e `target_time` preenchido.
 
 ## Testar manualmente (sem esperar as 5h)
 
