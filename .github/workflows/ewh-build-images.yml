@@ -28,6 +28,7 @@ jobs:
             dockerfile: ./apps/web/Dockerfile.web
           - name: plane-backend
             dockerfile: ./apps/api/Dockerfile.api
+            context: ./apps/api
           - name: plane-admin
             dockerfile: ./apps/admin/Dockerfile.admin
           - name: plane-space
@@ -47,7 +48,7 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: .
+          context: ${{ matrix.context || '.' }}
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: true
