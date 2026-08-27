@@ -180,6 +180,15 @@ class IssueFilterSet(BaseFilterSet):
     # The same applies to ranges: the UI sends "YYYY-MM-DD,YYYY-MM-DD", and a plain
     # `range` on a DateTimeField turns the upper bound into that day's midnight, which
     # silently dropped every row created during the final day of the range.
+    # EWH: start/target date aceitam tokens relativos ("today;exact;fromnow",
+    # "7_days;next;fromnow", "no_date;exact;fromnow"…) além de datas puras.
+    # Os tokens são resolvidos A CADA CONSULTA por plane.utils.issue_filters
+    # (fuso de negócio) — é o que mantém Views salvas dinâmicas.
+    start_date = filters.CharFilter(method="filter_ewh_start_date")
+    start_date__exact = filters.CharFilter(method="filter_ewh_start_date")
+    target_date = filters.CharFilter(method="filter_ewh_target_date")
+    target_date__exact = filters.CharFilter(method="filter_ewh_target_date")
+
     created_at = filters.DateFilter(field_name="created_at", lookup_expr="date")
     created_at__exact = filters.DateFilter(field_name="created_at", lookup_expr="date")
     created_at__range = DateCSVRangeFilter(field_name="created_at", lookup_expr="date__range")
@@ -198,6 +207,32 @@ class IssueFilterSet(BaseFilterSet):
             "is_draft": ["exact"],
             "priority": ["exact", "in"],
         }
+
+    # EWH: resolve token relativo ou data pura para os campos de prazo
+    def _ewh_date_q(self, field_name, value):
+        from datetime import date as _date
+
+        from plane.utils.issue_filters import date_filter
+
+        value = str(value).strip()
+        if not value:
+            return Q()
+        if ";" in value:
+            resolved = {}
+            date_filter(resolved, field_name, [value])
+            return Q(**resolved) if resolved else Q()
+        # data pura (YYYY-MM-DD); valor inválido vira no-op em vez de 500
+        try:
+            _date.fromisoformat(value)
+        except ValueError:
+            return Q()
+        return Q(**{field_name: value})
+
+    def filter_ewh_start_date(self, queryset, name, value):
+        return self._ewh_date_q("start_date", value)
+
+    def filter_ewh_target_date(self, queryset, name, value):
+        return self._ewh_date_q("target_date", value)
 
     def filter_is_archived(self, queryset, name, value):
         """

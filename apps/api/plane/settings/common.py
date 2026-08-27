@@ -290,6 +290,9 @@ USE_I18N = True
 USE_TZ = True
 TIME_ZONE = "UTC"
 
+# EWH: fuso de negócio para filtros relativos de data ("hoje", "atrasadas")
+EWH_BUSINESS_TZ = os.environ.get("EWH_BUSINESS_TZ", "America/Sao_Paulo")
+
 # Default Auto Field
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
