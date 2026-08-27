@@ -96,7 +96,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
           onClick={filter.clearFilters}
           data-ph-element={trackerElements?.clearFilter}
         >
-          {filter.clearFilterOptions?.label ?? "Clear all"}
+          {filter.clearFilterOptions?.label ?? "Limpar tudo"}
         </Button>
       </ElementTransition>
       <ElementTransition show={filter.canSaveView}>
@@ -106,7 +106,7 @@ export const FiltersRow = observer(function FiltersRow<K extends TFilterProperty
           onClick={filter.saveView}
           data-ph-element={trackerElements?.saveView}
         >
-          {filter.saveViewOptions?.label ?? "Save view"}
+          {filter.saveViewOptions?.label ?? "Salvar visualização"}
         </Button>
       </ElementTransition>
       <ElementTransition show={filter.canUpdateView}>

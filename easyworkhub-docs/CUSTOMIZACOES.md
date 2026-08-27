@@ -61,10 +61,37 @@ aditivos. `filter.ts` (constantes) é lista de dados. O ponto mais sensível é
 
 ---
 
+## C2 — Interface pt-BR, lote 1 (Épico 6)
+
+Strings hardcoded (fora do i18n) das jornadas principais, traduzidas direto:
+
+| Superfície | Antes → Depois |
+|---|---|
+| Rótulos de filtro (`packages/utils/src/work-item-filters/configs/filters/*.ts`) | State→Estado, Assignees→Responsáveis, Priority→Prioridade, Label→Etiqueta, Cycle→Ciclo, Module→Módulo, Mentions→Menções, Created by→Criado por, State Group→Grupo de estado, Subscriber→Inscrito, Projects→Projetos |
+| Linha de filtros (`rich-filters/filters-row.tsx`) | Clear all→Limpar tudo, Save view→Salvar visualização |
+| Busca global (`top-nav-power-k.tsx`) | Search commands…→Buscar comandos… |
+| Breadcrumb (`issues/header.tsx`) | Work Items→Itens de trabalho |
+| Views (`*-layout-root.tsx`) | All work items→Todos os itens, Save as→Salvar como |
+| Sidebar (`(projects)/sidebar.tsx` + wrapper + listas) | Projects→Projetos, More/Hide→Mais/Ocultar |
+| Headers de view/módulo (`app/**/header.tsx`) | Add work item→Adicionar item |
+
+Estratégia: substituição direta (não i18n) por serem strings fora do sistema de
+tradução; candidatas a PR upstream com i18n formal depois. Risco de rebase:
+baixo — strings pontuais.
+
+## C3 — Alertas internos de prazo (Épico 5b)
+
+| Arquivo | Mudança |
+|---|---|
+| `apps/api/plane/bgtasks/ewh_deadline_alerts.py` | **Novo** (aditivo). Task diária: cria notificações internas "vence amanhã / vence hoje / atrasada há X dias" para os responsáveis. Dedupe por item+tipo+dia (idempotente, testado); atraso renotificado a cada `EWH_ALERT_OVERDUE_REPEAT_DAYS` (padrão 3); desligável com `EWH_DEADLINE_ALERTS=0`; marca ⚠ URGENTE quando prioridade urgente; datas no fuso de negócio. |
+| `apps/api/plane/celery.py` | +5 linhas: agenda `10:00 UTC` (= 7h Brasília). |
+| `.../notification-card/content.tsx` | +7 linhas: handler do field `ewh_alert` no mapa de conteúdo (sem ele, o card não renderiza notificação sem ator). |
+
+Testado: 4 alertas corretos (2 vence-hoje, 2 atrasadas), 2ª execução = 0 (dedupe).
+
 ## Pendentes (próximos nesta branch)
 
-- C2 — Interface 100% pt-BR, lote 1 (Épico 6)
-- C3 — Alertas internos de prazo via Celery beat (Épico 5b)
+- C2 lote 2 — telas administrativas
 - C4 — Horário opcional nas tarefas, colunas aditivas (Épico 7)
 
 ## Infra
