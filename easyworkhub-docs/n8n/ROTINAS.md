@@ -1,3 +1,16 @@
+# ⚠️ DESCONTINUADO (28/08/2026) — recorrência agora é nativa
+
+A recorrência passou a ser configurada **na própria tarefa** (campo
+"Recorrência" na página da tarefa: Diária / Semanal / Mensal), gerada pelo
+beat do backend às 5h. Ver `easyworkhub-docs/CUSTOMIZACOES.md` (C5).
+
+O workflow `EwhRecorrencia` do n8n foi **desativado** (não excluído) e este
+guia permanece só como plano B histórico. Para reativar em emergência:
+`n8n update:workflow --id=EwhRecorrencia --active=true` + reciclar serviços —
+mas NUNCA com os dois motores ativos ao mesmo tempo (duplicaria tarefas).
+
+---
+
 # Recorrência de rotinas (Épico 3) — guia de gestão
 
 **Status: NO AR e testada** (26/08/2026). Workflow `EwhRecorrencia` ativo no n8n,
