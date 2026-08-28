@@ -72,6 +72,9 @@ def ewh_deadline_alerts():
                 assignees__isnull=False,
             )
             .exclude(state__group__in=["completed", "cancelled"])
+            # EWH (C5): moldes de recorrência não recebem alerta — a ocorrência
+            # do dia é quem avisa; o molde só marca a próxima execução
+            .exclude(ewh_recurrence__ativo=True)
             .select_related("project", "workspace", "state")
             .prefetch_related("assignees")
         )

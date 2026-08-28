@@ -339,6 +339,9 @@ CELERY_ACCEPT_CONTENT = ["application/json"]
 
 
 CELERY_IMPORTS = (
+    # EWH: tasks agendadas do fork (sem isto o worker descarta como "unregistered")
+    "plane.bgtasks.ewh_recurrence_task",
+    "plane.bgtasks.ewh_deadline_alerts",
     # scheduled tasks
     "plane.bgtasks.issue_automation_task",
     "plane.bgtasks.exporter_expired_task",
