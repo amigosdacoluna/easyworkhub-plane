@@ -166,6 +166,7 @@ export class IssueStore implements IIssueStore {
       // EWH (Épico 7): horário opcional
       start_time: issue?.start_time,
       target_time: issue?.target_time,
+      ewh_recurrence: issue?.ewh_recurrence,
       completed_at: issue?.completed_at,
       archived_at: issue?.archived_at,
       created_by: issue?.created_by,

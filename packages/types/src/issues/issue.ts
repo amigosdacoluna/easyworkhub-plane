@@ -71,6 +71,8 @@ export type TBaseIssue = {
   // EWH (Épico 7): horário opcional (formato "HH:MM:SS", null = sem hora)
   start_time: string | null;
   target_time: string | null;
+  // EWH (C5): recorrência definida na tarefa-molde
+  ewh_recurrence?: { frequencia: "diaria" | "semanal" | "mensal"; ativo?: boolean; ultima?: string } | null;
   completed_at: string | null;
   archived_at: string | null;
 

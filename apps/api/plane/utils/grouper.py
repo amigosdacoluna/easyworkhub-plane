@@ -115,6 +115,7 @@ def issue_on_results(
         "target_date",
                 "start_time",
                 "target_time",
+                "ewh_recurrence",
         "sequence_id",
         "project_id",
         "parent_id",

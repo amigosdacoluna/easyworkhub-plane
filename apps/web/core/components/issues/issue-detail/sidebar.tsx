@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { Repeat2 } from "lucide-react";
 import { observer } from "mobx-react";
 // i18n
 import { useTranslation } from "@plane/i18n";
@@ -210,6 +211,31 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                   />
                 )}
               </div>
+            </SidebarPropertyListItem>
+
+            {/* EWH (C5): recorrência definida na própria tarefa */}
+            <SidebarPropertyListItem icon={Repeat2} label="Recorrência">
+              <select
+                aria-label="Recorrência"
+                className="h-7.5 w-full cursor-pointer rounded bg-transparent px-1 text-body-xs-regular text-secondary outline-none hover:bg-layer-1 focus:bg-layer-1"
+                value={issue.ewh_recurrence?.ativo ? issue.ewh_recurrence.frequencia : ""}
+                onChange={(e) => {
+                  const frequencia = e.target.value as "diaria" | "semanal" | "mensal" | "";
+                  issueOperations.update(workspaceSlug, projectId, issueId, {
+                    ewh_recurrence: frequencia ? { frequencia, ativo: true } : null,
+                    // sem prazo o molde não gera nada — assume hoje como âncora
+                    ...(frequencia && !issue.target_date
+                      ? { target_date: renderFormattedPayloadDate(new Date()) }
+                      : {}),
+                  });
+                }}
+                disabled={!isEditable}
+              >
+                <option value="">Nenhuma</option>
+                <option value="diaria">Diária</option>
+                <option value="semanal">Semanal (dia do prazo)</option>
+                <option value="mensal">Mensal (dia do prazo)</option>
+              </select>
             </SidebarPropertyListItem>
 
             {projectId && areEstimateEnabledByProjectId(projectId) && (

@@ -108,6 +108,35 @@ Serializers interno (`__all__`) e público (sem `fields`) expõem os campos
 automaticamente — a API pública já aceita/retorna (testado: PATCH + GET).
 A recorrência (n8n) pode definir `target_time` nas ocorrências.
 
+## C5 — Recorrência nativa na UI + Views globais dinâmicas
+
+Motivado por uso real (27/08): "ver atrasados de todos os projetos numa view só"
+e "criar rotinas pelo próprio sistema".
+
+**Views globais** (sem código — infra do C1b já cobria): 3 views de workspace
+criadas em produção ("📅 Hoje / 🔴 Atrasadas / 📆 Próximos 7 dias — todos os
+projetos"), com filtro composto que EXCLUI concluídas/canceladas
+(`state_group__in` + token dinâmico).
+
+**Recorrência nativa** — a tarefa vira o molde:
+
+| Arquivo | Mudança |
+|---|---|
+| `db/models/issue.py` + `migrations/ewh_0002_issue_recurrence.py` | Campo aditivo `ewh_recurrence` (JSON: frequencia/ativo/ultima) |
+| `bgtasks/ewh_recurrence_task.py` | **Novo.** Beat diário 5h (Brasília): gera a ocorrência do dia (herda descrição, prioridade, responsáveis, etiquetas, hora; estado "A fazer") e AVANÇA o prazo do molde para a próxima data — o molde nunca fica atrasado e mostra a próxima execução. Catch-up sem inundar; idempotente por `ultima`; desligável com `EWH_RECURRENCE=0` |
+| `celery.py` | agenda 08:00 UTC |
+| serializers/values/types/store | campo exposto fim a fim |
+| `issue-detail/sidebar.tsx` | Seletor "Recorrência": Nenhuma / Diária / Semanal (dia do prazo) / Mensal (dia do prazo). Ao ativar sem prazo, assume hoje como âncora |
+
+Semântica: semanal repete no dia da semana do prazo do molde; mensal no dia do
+mês (meses curtos: último dia); hora da ocorrência = hora do molde.
+
+**Substitui o motor n8n** (EwhRecorrencia) — desativar o workflow após o deploy
+e migrar a rotina real para tarefa-molde. O n8n fica como plano B documentado.
+
+Testado: geração com herança completa, idempotência, molde avança, semanal com
+prazo futuro não gera.
+
 ## Pendentes (próximos nesta branch)
 
 - C2 lote 2 — telas administrativas

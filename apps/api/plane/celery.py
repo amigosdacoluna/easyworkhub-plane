@@ -42,6 +42,11 @@ app = Celery("plane")
 app.config_from_object("django.conf:settings", namespace="CELERY")
 
 app.conf.beat_schedule = {
+    # EWH (C5): recorrência nativa — 08:00 UTC = 05:00 Brasília
+    "ewh-recurrence-daily": {
+        "task": "plane.bgtasks.ewh_recurrence_task.ewh_recurrence_task",
+        "schedule": crontab(hour=8, minute=0),
+    },
     # EWH: alertas internos de prazo — 10:00 UTC = 07:00 Brasília
     "ewh-deadline-alerts-daily": {
         "task": "plane.bgtasks.ewh_deadline_alerts.ewh_deadline_alerts",

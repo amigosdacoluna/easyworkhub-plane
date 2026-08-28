@@ -149,6 +149,9 @@ class Issue(ChangeTrackerMixin, ProjectBaseModel):
     # EWH (Épico 7): horário opcional — colunas aditivas; null = comportamento original
     start_time = models.TimeField(null=True, blank=True)
     target_time = models.TimeField(null=True, blank=True)
+    # EWH (C5): recorrência definida na própria tarefa (molde). Formato:
+    # {"frequencia": "diaria"|"semanal"|"mensal", "ativo": true, "ultima": "YYYY-MM-DD"}
+    ewh_recurrence = models.JSONField(null=True, blank=True)
     assignees = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         blank=True,
